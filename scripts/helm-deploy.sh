@@ -50,19 +50,35 @@ helm upgrade --install "$RELEASE_NAME" "$repo_root" \
   --values "$repo_root/values.yaml" \
   --wait=false
 
-echo "Waiting for Vault pod to be ready..."
-kubectl wait --for=condition=ready pod -l "app.kubernetes.io/name=vault,app.kubernetes.io/instance=$RELEASE_NAME" \
+# The official Vault chart readiness probe runs `vault status`, which exits
+# non-zero when Vault is sealed. The pod will not reach Ready until after
+# vault-init.sh initializes and unseals it. So we wait for the container to
+# start (Initialized condition), then unseal, then confirm Ready.
+echo "Waiting for Vault pod to start (container running, pre-unseal)..."
+kubectl wait pod/"${RELEASE_NAME}-0" \
+  --for=condition=initialized \
   --timeout=180s -n "$NAMESPACE"
+
+# Give vault server a moment to start listening on 8200
+sleep 5
 
 if command -v minikube >/dev/null 2>&1; then
   MINIKUBE_IP=$(minikube ip)
   echo "Vault is available at: http://$MINIKUBE_IP:$NODE_PORT"
   echo "Or use: minikube service ${RELEASE_NAME} --url"
+  export VAULT_ADDR=${VAULT_ADDR:-"http://$MINIKUBE_IP:$NODE_PORT"}
 else
   echo "Vault NodePort is $NODE_PORT. Use your node IP to connect."
+  export VAULT_ADDR=${VAULT_ADDR:-"http://127.0.0.1:$NODE_PORT"}
 fi
 
 echo ""
 echo "Initializing Vault..."
-export VAULT_ADDR=${VAULT_ADDR:-"http://$(minikube ip 2>/dev/null || echo '127.0.0.1'):$NODE_PORT"}
 bash "$repo_root/scripts/vault-init.sh"
+
+echo "Waiting for Vault pod to be ready (post-unseal)..."
+kubectl wait pod/"${RELEASE_NAME}-0" \
+  --for=condition=ready \
+  --timeout=60s -n "$NAMESPACE"
+
+echo "Vault is ready."

@@ -31,19 +31,29 @@ jobs:
         with:
           version: "3.14.0"
 
-      - name: Cleanup existing Kubernetes resources
+      - name: Uninstall existing Helm release and clean up resources
         run: |
-          kubectl delete deployment vault --ignore-not-found --wait=false
-          kubectl delete service vault --ignore-not-found --wait=false
-          kubectl delete configmap vault-config vault-logrotate --ignore-not-found --wait=false
-          kubectl delete pvc vault-data-pvc --ignore-not-found --wait=false
+          # Uninstall the Helm release if it exists (removes StatefulSet,
+          # Services, ConfigMaps, ServiceAccount, RBAC managed by the chart)
+          helm uninstall vault --ignore-not-found 2>/dev/null || true
+
+          # Remove PVC created by the StatefulSet volumeClaimTemplate
+          # (not managed by Helm uninstall — must be deleted manually)
+          kubectl delete pvc data-vault-0 --ignore-not-found --wait=false || true
+
+          # Remove our wrapper-chart PV and logrotate ConfigMap
           kubectl patch pv vault-data-pv -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
-          kubectl delete pv vault-data-pv --ignore-not-found --wait=false
+          kubectl delete pv vault-data-pv --ignore-not-found --wait=false || true
+          kubectl delete configmap vault-minikube-logrotate --ignore-not-found --wait=false || true
 
       - name: Wait for resources to finish terminating
         run: |
+          echo "Waiting for StatefulSet pod to terminate..."
+          until ! kubectl get pod vault-0 2>/dev/null | grep -q vault-0; do
+            echo "Pod still terminating..."; sleep 3
+          done
           echo "Waiting for PVC to terminate..."
-          until ! kubectl get pvc vault-data-pvc 2>/dev/null | grep -q vault-data-pvc; do
+          until ! kubectl get pvc data-vault-0 2>/dev/null | grep -q data-vault-0; do
             echo "PVC still terminating..."; sleep 3
           done
           echo "Waiting for PV to terminate..."
