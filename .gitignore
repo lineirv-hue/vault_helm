@@ -1,0 +1,36 @@
+# Helm
+*.tgz
+charts/
+Chart.lock
+
+# Secrets & credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets.yaml
+secrets.yml
+*-secret.yaml
+*-secret.yml
+override-values.yaml
+
+# Terraform (if used alongside)
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Rendered templates (local only)
+rendered/
+output/
