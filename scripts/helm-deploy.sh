@@ -23,13 +23,20 @@ RELEASE_NAME=${RELEASE_NAME:-vault}
 NAMESPACE=${NAMESPACE:-default}
 NODE_PORT=${NODE_PORT:-32000}
 
+echo "Adding HashiCorp Helm repository..."
+helm repo add hashicorp https://helm.releases.hashicorp.com
+helm repo update
+
+echo "Fetching chart dependencies (official hashicorp/vault chart)..."
+helm dependency update "$repo_root"
+
 echo "Cleaning up any existing PV/PVC to avoid conflicts..."
-kubectl delete pvc vault-data-pvc --ignore-not-found --wait=false -n "$NAMESPACE" || true
+kubectl delete pvc "data-${RELEASE_NAME}-0" --ignore-not-found --wait=false -n "$NAMESPACE" || true
 kubectl patch pv vault-data-pv -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
 kubectl delete pv vault-data-pv --ignore-not-found --wait=false || true
 
 echo "Waiting for PVC and PV to terminate..."
-until ! kubectl get pvc vault-data-pvc -n "$NAMESPACE" 2>/dev/null | grep -q vault-data-pvc; do
+until ! kubectl get pvc "data-${RELEASE_NAME}-0" -n "$NAMESPACE" 2>/dev/null | grep -q "data-${RELEASE_NAME}-0"; do
   echo "PVC still terminating..."; sleep 3
 done
 until ! kubectl get pv vault-data-pv 2>/dev/null | grep -q vault-data-pv; do
@@ -50,7 +57,7 @@ kubectl wait --for=condition=ready pod -l "app.kubernetes.io/name=vault,app.kube
 if command -v minikube >/dev/null 2>&1; then
   MINIKUBE_IP=$(minikube ip)
   echo "Vault is available at: http://$MINIKUBE_IP:$NODE_PORT"
-  echo "Or use: minikube service vault --url"
+  echo "Or use: minikube service ${RELEASE_NAME} --url"
 else
   echo "Vault NodePort is $NODE_PORT. Use your node IP to connect."
 fi

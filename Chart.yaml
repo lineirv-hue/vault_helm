@@ -1,6 +1,6 @@
 apiVersion: v2
-name: vault
-description: Helm chart for deploying HashiCorp Vault on Minikube
+name: vault-minikube
+description: Wrapper chart deploying the official HashiCorp Vault Helm chart on Minikube
 type: application
 version: 0.1.0
 appVersion: "1.15.2"
@@ -11,5 +11,11 @@ keywords:
 home: https://www.vaultproject.io/
 sources:
   - https://github.com/lineirv-hue/vault_helm
+  - https://github.com/hashicorp/vault-helm
 maintainers:
   - name: lineirv-hue
+
+dependencies:
+  - name: vault
+    version: "0.27.0"
+    repository: https://helm.releases.hashicorp.com

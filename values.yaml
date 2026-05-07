@@ -1,45 +1,10 @@
-## Kubernetes settings
-namespace: default
-kubeconfig_path: ~/.kube/config
+## ============================================================
+## Wrapper chart values (used by templates/pv.yaml and
+## templates/configmap-logrotate.yaml in this repo only)
+## ============================================================
 
-## Vault image
-image:
-  repository: hashicorp/vault
-  tag: "1.15.2"
-  pullPolicy: IfNotPresent
-
-## Service
-service:
-  type: NodePort
-  port: 8200
-  nodePort: 32000
-
-## Vault configuration (mirrors terraform.tfvars.json)
-vault:
-  ui: true
-  listener:
-    address: "0.0.0.0"
-    port: 8200
-    tlsDisable: true
-  storage:
-    path: /vault/data
-  disableMlock: true
-  logLevel: info
-  logDir: /vault/logs
-  logFile: vault.log
-
-## Logrotate sidecar settings
-logrotate:
-  image:
-    repository: alpine
-    tag: "3.18"
-  rotate:
-    size: 50M
-    keep: 5
-    compress: true
-    copytruncate: true
-
-## Persistent volume settings
+# hostPath PersistentVolume for Minikube — bound by the official
+# chart's volumeClaimTemplate (data-vault-0, storageClass: manual)
 persistence:
   hostPath: /tmp/vault-data
   storageClassName: manual
@@ -47,14 +12,117 @@ persistence:
   accessMode: ReadWriteOnce
   reclaimPolicy: Retain
 
-## Replica count (keep at 1 for file storage backend)
-replicaCount: 1
+# Logrotate sidecar configuration (used by configmap-logrotate.yaml)
+vaultLogs:
+  dir: /vault/logs
+  file: vault.log
 
-## Pod resource limits (optional)
-resources: {}
-# limits:
-#   cpu: 500m
-#   memory: 256Mi
-# requests:
-#   cpu: 250m
-#   memory: 128Mi
+vaultLogrotate:
+  rotate:
+    size: 50M
+    keep: 5
+    compress: true
+    copytruncate: true
+
+## ============================================================
+## Official HashiCorp Vault Helm chart values
+## https://github.com/hashicorp/vault-helm
+## All keys nested under `vault:` are forwarded to the subchart.
+## ============================================================
+vault:
+  global:
+    enabled: true
+    tlsDisable: true
+
+  server:
+    enabled: true
+
+    image:
+      repository: hashicorp/vault
+      tag: "1.15.2"
+      pullPolicy: IfNotPresent
+
+    # Standalone mode — single replica with file storage (matches
+    # the existing vault_k8s_deployment Terraform configuration)
+    standalone:
+      enabled: true
+      config: |
+        ui = true
+
+        listener "tcp" {
+          address     = "[::]:8200"
+          cluster_address = "[::]:8201"
+          tls_disable = 1
+        }
+
+        storage "file" {
+          path = "/vault/data"
+        }
+
+        disable_mlock = true
+        log_level     = "info"
+
+    ha:
+      enabled: false
+
+    dev:
+      enabled: false
+
+    logLevel: "info"
+    logFormat: "standard"
+
+    # NodePort service — matches node_port = 32000 from tfvars
+    service:
+      enabled: true
+      type: NodePort
+      port: 8200
+      targetPort: 8200
+      nodePort: 32000
+
+    # Data storage — storageClass: manual binds to our hostPath PV
+    dataStorage:
+      enabled: true
+      size: 1Gi
+      mountPath: /vault/data
+      storageClass: manual
+      accessMode: ReadWriteOnce
+
+    # Disable audit storage (not used in this setup)
+    auditStorage:
+      enabled: false
+
+    # Extra volume for logs + logrotate ConfigMap mount
+    volumes:
+      - name: vault-logs
+        emptyDir: {}
+      - name: vault-logrotate-conf
+        configMap:
+          name: vault-minikube-logrotate
+
+    # Mount vault-logs into the main Vault container so log_file works
+    volumeMounts:
+      - name: vault-logs
+        mountPath: /vault/logs
+
+    # Logrotate sidecar — mirrors the sidecar in vault_k8s_deployment
+    extraContainers:
+      - name: vault-logrotate
+        image: alpine:3.18
+        command: ["/bin/sh", "-c"]
+        args:
+          - "apk add --no-cache logrotate >/dev/null 2>&1; while true; do logrotate /etc/logrotate.d/vault 2>/dev/null || true; sleep 60; done"
+        volumeMounts:
+          - name: vault-logs
+            mountPath: /vault/logs
+          - name: vault-logrotate-conf
+            mountPath: /etc/logrotate.d
+
+  # Vault UI — enabled, served through the server NodePort service
+  ui:
+    enabled: true
+    publishNotReadyAddresses: true
+    serviceType: ClusterIP
+
+  # Disable injector (not needed for this local dev setup)
+  injector:
+    enabled: false

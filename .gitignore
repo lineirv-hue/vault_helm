@@ -1,7 +1,7 @@
-# Helm
+# Helm — downloaded dependency tarballs are excluded; run `helm dependency update` after cloning
 *.tgz
 charts/
-Chart.lock
+# Chart.lock is committed to pin exact dependency versions
 
 # Secrets & credentials
 *.pem

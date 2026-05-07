@@ -1,19 +1,20 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: vault-logrotate
-  namespace: {{ .Values.namespace }}
+  # Name must match vault.server.volumes[].configMap.name in values.yaml
+  name: vault-minikube-logrotate
   labels:
-    {{- include "vault.labels" . | nindent 4 }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 data:
   vault: |
-    {{ .Values.vault.logDir }}/{{ .Values.vault.logFile }} {
-      size {{ .Values.logrotate.rotate.size }}
-      {{- if .Values.logrotate.rotate.copytruncate }}
+    {{ .Values.vaultLogs.dir }}/{{ .Values.vaultLogs.file }} {
+      size {{ .Values.vaultLogrotate.rotate.size }}
+      {{- if .Values.vaultLogrotate.rotate.copytruncate }}
       copytruncate
       {{- end }}
-      rotate {{ .Values.logrotate.rotate.keep }}
-      {{- if .Values.logrotate.rotate.compress }}
+      rotate {{ .Values.vaultLogrotate.rotate.keep }}
+      {{- if .Values.vaultLogrotate.rotate.compress }}
       compress
       {{- end }}
       missingok

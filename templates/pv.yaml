@@ -3,7 +3,8 @@ kind: PersistentVolume
 metadata:
   name: vault-data-pv
   labels:
-    {{- include "vault.labels" . | nindent 4 }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 spec:
   capacity:
     storage: {{ .Values.persistence.size }}
