@@ -30,7 +30,7 @@ echo "You will need a runner registration token from GitHub."
 echo "Go to: $REPO_URL/settings/actions/runners"
 echo "Click 'Add runner' > 'macOS' > Copy the token from the 'Configure' section."
 echo ""
-read -p "Enter the runner registration token: " -s TOKEN
+read -rp "Enter the runner registration token: " -s TOKEN
 echo ""
 
 ./config.sh --url "$REPO_URL" --token "$TOKEN" --labels "macos,self-hosted" --name "local-macos-$(hostname)"

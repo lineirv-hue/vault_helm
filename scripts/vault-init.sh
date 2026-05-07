@@ -38,7 +38,7 @@ initialized=$(echo "$vault_status_json" | python3 -c 'import sys, json; print(js
 
 if [[ "$initialized" == "False" ]]; then
   echo "Initializing Vault..."
-  vault operator init -key-shares=$KEY_SHARES -key-threshold=$KEY_THRESHOLD -format=json > "$INIT_FILE"
+  vault operator init -key-shares="$KEY_SHARES" -key-threshold="$KEY_THRESHOLD" -format=json > "$INIT_FILE"
   echo "Vault init output written to $INIT_FILE"
 
   ROOT_TOKEN=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["root_token"])' "$INIT_FILE")
@@ -65,7 +65,8 @@ fi
 
 if [[ -z "${VAULT_TOKEN:-}" ]]; then
   if [[ -f "$INIT_FILE" ]]; then
-    export VAULT_TOKEN=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["root_token"])' "$INIT_FILE")
+    VAULT_TOKEN=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["root_token"])' "$INIT_FILE")
+    export VAULT_TOKEN
   else
     echo "VAULT_TOKEN is not set and $INIT_FILE is not available."
     echo "Set VAULT_TOKEN or provide $INIT_FILE to continue."
