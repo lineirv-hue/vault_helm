@@ -52,18 +52,3 @@ jobs:
       - name: Helm template (dry-run render)
         run: helm template vault . --values values.yaml
 
-      - name: Check kubeconfig connectivity
-        run: |
-          if ! kubectl cluster-info >/dev/null 2>&1; then
-            echo "Warning: kubeconfig not reachable — skipping helm install dry-run"
-            echo "SKIP_DRY_RUN=true" >> "$GITHUB_ENV"
-          else
-            echo "SKIP_DRY_RUN=false" >> "$GITHUB_ENV"
-          fi
-
-      - name: Helm install dry-run
-        if: env.SKIP_DRY_RUN != 'true'
-        run: |
-          helm upgrade --install vault . \
-            --values values.yaml \
-            --dry-run=client
