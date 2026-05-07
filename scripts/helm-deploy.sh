@@ -44,6 +44,16 @@ until ! kubectl get pv vault-data-pv 2>/dev/null | grep -q vault-data-pv; do
   echo "PV still terminating..."; sleep 3
 done
 
+# The official chart runs Vault as uid 100 / gid 1000. Pre-create the
+# hostPath directory inside Minikube with matching ownership so Vault can
+# write its data without a "permission denied" error.
+if command -v minikube >/dev/null 2>&1; then
+  HOSTPATH=$(grep 'hostPath' "$repo_root/values.yaml" | awk '{print $2}' | tr -d '"')
+  HOSTPATH=${HOSTPATH:-/tmp/vault-data}
+  echo "Pre-creating hostPath '$HOSTPATH' inside Minikube with uid 100 / gid 1000..."
+  minikube ssh "sudo mkdir -p $HOSTPATH && sudo chown -R 100:1000 $HOSTPATH && sudo chmod -R 755 $HOSTPATH"
+fi
+
 echo "Installing/upgrading Vault Helm release '$RELEASE_NAME' in namespace '$NAMESPACE'..."
 helm upgrade --install "$RELEASE_NAME" "$repo_root" \
   --namespace "$NAMESPACE" \
