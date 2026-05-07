@@ -66,4 +66,4 @@ jobs:
         run: |
           helm upgrade --install vault . \
             --values values.yaml \
-            --dry-run
+            --dry-run=client
