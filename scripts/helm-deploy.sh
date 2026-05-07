@@ -58,8 +58,8 @@ with open('$repo_root/values.yaml') as f:
             break
 " 2>/dev/null)
   HOSTPATH=${HOSTPATH:-/tmp/vault-data}
-  echo "Pre-creating hostPath '$HOSTPATH' inside Minikube with uid 100 / gid 1000..."
-  minikube ssh "sudo mkdir -p '$HOSTPATH' && sudo chown -R 100:1000 '$HOSTPATH' && sudo chmod -R 755 '$HOSTPATH'"
+  echo "Wiping and re-creating hostPath '$HOSTPATH' inside Minikube (uid 100 / gid 1000)..."
+  minikube ssh "sudo rm -rf '$HOSTPATH' && sudo mkdir -p '$HOSTPATH' && sudo chown -R 100:1000 '$HOSTPATH' && sudo chmod -R 755 '$HOSTPATH'"
 fi
 
 echo "Installing/upgrading Vault Helm release '$RELEASE_NAME' in namespace '$NAMESPACE'..."
