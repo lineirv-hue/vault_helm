@@ -48,10 +48,18 @@ done
 # hostPath directory inside Minikube with matching ownership so Vault can
 # write its data without a "permission denied" error.
 if command -v minikube >/dev/null 2>&1; then
-  HOSTPATH=$(grep 'hostPath' "$repo_root/values.yaml" | awk '{print $2}' | tr -d '"')
+  HOSTPATH=$(python3 -c "
+import sys
+with open('$repo_root/values.yaml') as f:
+    for line in f:
+        s = line.strip()
+        if s.startswith('hostPath:'):
+            print(s.split(':', 1)[1].strip())
+            break
+" 2>/dev/null)
   HOSTPATH=${HOSTPATH:-/tmp/vault-data}
   echo "Pre-creating hostPath '$HOSTPATH' inside Minikube with uid 100 / gid 1000..."
-  minikube ssh "sudo mkdir -p $HOSTPATH && sudo chown -R 100:1000 $HOSTPATH && sudo chmod -R 755 $HOSTPATH"
+  minikube ssh "sudo mkdir -p '$HOSTPATH' && sudo chown -R 100:1000 '$HOSTPATH' && sudo chmod -R 755 '$HOSTPATH'"
 fi
 
 echo "Installing/upgrading Vault Helm release '$RELEASE_NAME' in namespace '$NAMESPACE'..."
