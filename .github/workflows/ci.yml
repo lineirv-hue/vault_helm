@@ -40,6 +40,12 @@ jobs:
           fi
           find scripts -name '*.sh' -print0 | xargs -0 bash -n
 
+      - name: Helm dependency update
+        run: |
+          helm repo add hashicorp https://helm.releases.hashicorp.com
+          helm repo update
+          helm dependency update .
+
       - name: Helm lint
         run: helm lint . --values values.yaml
 
