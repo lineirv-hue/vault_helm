@@ -1,0 +1,57 @@
+name: Deploy Vault Helm
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    branches:
+      - main
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: [self-hosted, macos]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "3.14.0"
+
+      - name: Cleanup existing Kubernetes resources
+        run: |
+          kubectl delete deployment vault --ignore-not-found --wait=false
+          kubectl delete service vault --ignore-not-found --wait=false
+          kubectl delete configmap vault-config vault-logrotate --ignore-not-found --wait=false
+          kubectl delete pvc vault-data-pvc --ignore-not-found --wait=false
+          kubectl patch pv vault-data-pv -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+          kubectl delete pv vault-data-pv --ignore-not-found --wait=false
+
+      - name: Wait for resources to finish terminating
+        run: |
+          echo "Waiting for PVC to terminate..."
+          until ! kubectl get pvc vault-data-pvc 2>/dev/null | grep -q vault-data-pvc; do
+            echo "PVC still terminating..."; sleep 3
+          done
+          echo "Waiting for PV to terminate..."
+          until ! kubectl get pv vault-data-pv 2>/dev/null | grep -q vault-data-pv; do
+            kubectl patch pv vault-data-pv -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+            echo "PV still terminating..."; sleep 3
+          done
+          echo "All resources terminated."
+
+      - name: Deploy Vault
+        run: bash scripts/helm-deploy.sh

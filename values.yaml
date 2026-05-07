@@ -1,0 +1,60 @@
+## Kubernetes settings
+namespace: default
+kubeconfig_path: ~/.kube/config
+
+## Vault image
+image:
+  repository: hashicorp/vault
+  tag: "1.15.2"
+  pullPolicy: IfNotPresent
+
+## Service
+service:
+  type: NodePort
+  port: 8200
+  nodePort: 32000
+
+## Vault configuration (mirrors terraform.tfvars.json)
+vault:
+  ui: true
+  listener:
+    address: "0.0.0.0"
+    port: 8200
+    tlsDisable: true
+  storage:
+    path: /vault/data
+  disableMlock: true
+  logLevel: info
+  logDir: /vault/logs
+  logFile: vault.log
+
+## Logrotate sidecar settings
+logrotate:
+  image:
+    repository: alpine
+    tag: "3.18"
+  rotate:
+    size: 50M
+    keep: 5
+    compress: true
+    copytruncate: true
+
+## Persistent volume settings
+persistence:
+  hostPath: /tmp/vault-data
+  storageClassName: manual
+  size: 1Gi
+  accessMode: ReadWriteOnce
+  reclaimPolicy: Retain
+
+## Replica count (keep at 1 for file storage backend)
+replicaCount: 1
+
+## Pod resource limits (optional)
+resources: {}
+# limits:
+#   cpu: 500m
+#   memory: 256Mi
+# requests:
+#   cpu: 250m
+#   memory: 128Mi

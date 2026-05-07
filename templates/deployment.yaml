@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "vault.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "vault.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: vault
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - "vault server -config=/vault/config/vault.hcl 2>&1 | tee {{ .Values.vault.logDir }}/{{ .Values.vault.logFile }}"
+          ports:
+            - name: vault
+              containerPort: {{ .Values.vault.listener.port }}
+              protocol: TCP
+          volumeMounts:
+            - name: vault-config
+              mountPath: /vault/config
+            - name: vault-data
+              mountPath: {{ .Values.vault.storage.path }}
+            - name: vault-logs
+              mountPath: {{ .Values.vault.logDir }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+        - name: vault-logrotate
+          image: "{{ .Values.logrotate.image.repository }}:{{ .Values.logrotate.image.tag }}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - "apk add --no-cache logrotate >/dev/null 2>&1; while true; do logrotate /etc/logrotate.d/vault 2>/dev/null || true; sleep 60; done"
+          volumeMounts:
+            - name: vault-logs
+              mountPath: {{ .Values.vault.logDir }}
+            - name: vault-logrotate-conf
+              mountPath: /etc/logrotate.d
+
+      volumes:
+        - name: vault-config
+          configMap:
+            name: vault-config
+        - name: vault-data
+          persistentVolumeClaim:
+            claimName: vault-data-pvc
+        - name: vault-logs
+          emptyDir: {}
+        - name: vault-logrotate-conf
+          configMap:
+            name: vault-logrotate

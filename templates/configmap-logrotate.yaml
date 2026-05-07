@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-logrotate
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+data:
+  vault: |
+    {{ .Values.vault.logDir }}/{{ .Values.vault.logFile }} {
+      size {{ .Values.logrotate.rotate.size }}
+      {{- if .Values.logrotate.rotate.copytruncate }}
+      copytruncate
+      {{- end }}
+      rotate {{ .Values.logrotate.rotate.keep }}
+      {{- if .Values.logrotate.rotate.compress }}
+      compress
+      {{- end }}
+      missingok
+      notifempty
+    }

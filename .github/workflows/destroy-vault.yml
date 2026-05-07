@@ -1,0 +1,27 @@
+name: Destroy Vault Helm
+
+on:
+  workflow_dispatch:
+
+jobs:
+  destroy:
+    runs-on: [self-hosted, macos]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "3.14.0"
+
+      - name: Destroy Vault
+        run: bash scripts/helm-destroy.sh

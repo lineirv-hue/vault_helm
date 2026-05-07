@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  sanity-check:
+    runs-on: [self-hosted, macos]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "3.14.0"
+
+      - name: Verify shell scripts
+        run: |
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            if command -v brew >/dev/null 2>&1; then
+              brew install shellcheck || true
+            fi
+          fi
+          if command -v shellcheck >/dev/null 2>&1; then
+            find scripts -name '*.sh' -print0 | xargs -0 shellcheck
+          else
+            echo "shellcheck not installed, skipping shell linting"
+          fi
+          find scripts -name '*.sh' -print0 | xargs -0 bash -n
+
+      - name: Helm lint
+        run: helm lint . --values values.yaml
+
+      - name: Helm template (dry-run render)
+        run: helm template vault . --values values.yaml
+
+      - name: Check kubeconfig connectivity
+        run: |
+          if ! kubectl cluster-info >/dev/null 2>&1; then
+            echo "Warning: kubeconfig not reachable — skipping helm install dry-run"
+            echo "SKIP_DRY_RUN=true" >> "$GITHUB_ENV"
+          else
+            echo "SKIP_DRY_RUN=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Helm install dry-run
+        if: env.SKIP_DRY_RUN != 'true'
+        run: |
+          helm upgrade --install vault . \
+            --values values.yaml \
+            --dry-run
