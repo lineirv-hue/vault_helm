@@ -3,6 +3,9 @@
 charts/
 # Chart.lock is committed to pin exact dependency versions
 
+# Vault init output — contains root token and unseal key, never commit
+vault-init.json
+
 # Secrets & credentials
 *.pem
 *.key
